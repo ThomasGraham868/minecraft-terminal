@@ -3,38 +3,14 @@ import chalk from 'chalk';
 
 // Display game instructions
 function displayInstructions() {
-    console.log(chalk.green('Welcome to the Minecraft Terminal Game!'));
-    console.log(chalk.green('Controls:'));
-    console.log(chalk.green('w - move up'));// Minecraft in Terminal
-
-/* 
-    Key variables:
-(worldSize) = Defines the size of the game grid
-(blockTypes) = Array containing the different block types
-(player) = Object storing the player's current position
-(world) = 2D array representing the game world
-    Key Functions:
-(createWorld) = Places player at the initial position / Initializes the game world with random block(excluding bombs)
-(displayWorld) = Clears the current display
-(movePlayer(direction)) = Updates the player's position based on the direction of movement
-(Event Listener) = Listener for "keydown" added to capture arrow key presses and move the player accordingly
-*/
-
-// import readline & chalk
-import readline from 'readline';
-import chalk from 'chalk';
-
-// Display game instructions // Function
-function displayInstructions() {
-    console.log(chalk.green('Welcome to the Minecraft Terminal Game!'));
+    console.log(chalk.green('Welcome to the Terminal Minesweeper Game!'));
     console.log(chalk.green('Controls:'));
     console.log(chalk.green('w - move up'));
     console.log(chalk.green('s - move down'));
     console.log(chalk.green('a - move left'));
     console.log(chalk.green('d - move right'));
-    console.log(chalk.green('m - mine (remove a block)'));
-    console.log(chalk.green('p - place a block'));
-    console.log(chalk.green('b - place a bomb'));
+    console.log(chalk.green('m - mark/unmark a mine'));
+    console.log(chalk.green('r - reveal a cell'));
     console.log(chalk.green('Press Enter to start...'));
 }
 
@@ -45,133 +21,59 @@ const rl = readline.createInterface({
 });
 
 const worldSize = 8;
+const mineCount = 10;
 
 // Define different block types and their display colors
-const blockTypes = ['.', 'O', 'X', 'S', 'W', 'B']; // .: air, O: mined, X: placed, S: stone, W: wood, B: bomb // Array
 const blockColors = {
     '.': chalk.gray('.'),
-    'O': chalk.black('O'),
-    'X': chalk.yellow('X'),
-    'S': chalk.white('S'),
-    'W': chalk.rgb(139, 69, 19)('W'), // Chalk doesn't have a brown color, so using rgb for wood
-    'B': chalk.red('B') // Bomb
+    'M': chalk.red('M'),
+    'F': chalk.yellow('F'),
+    ' ': chalk.white(' '),
+    '0': chalk.white(' '), // Adding '0' to handle cells with no adjacent mines
+    '1': chalk.blue('1'),
+    '2': chalk.green('2'),
+    '3': chalk.red('3'),
+    '4': chalk.cyan('4'),
+    '5': chalk.magenta('5'),
+    '6': chalk.yellow('6'),
+    '7': chalk.gray('7'),
+    '8': chalk.black('8')
 };
 
-// Initialize the game world with random blocks // Array // Process
-const world = Array.from({ length: worldSize }, () => 
-    Array(worldSize).fill(null).map(() => blockTypes[Math.floor(Math.random() * (blockTypes.length - 1))]) // Exclude bombs in initial world
-);
+// Initialize the game world with hidden cells
+const world = Array.from({ length: worldSize }, () => Array(worldSize).fill('.'));
+const revealed = Array.from({ length: worldSize }, () => Array(worldSize).fill(false));
 
-let player = { x: 2, y: 2 };   // Process
+// Function to place mines randomly
+function placeMines() {
+    let placedMines = 0;
+    while (placedMines < mineCount) {
+        let x = Math.floor(Math.random() * worldSize);
+        let y = Math.floor(Math.random() * worldSize);
+        if (world[y][x] !== 'M') {
+            world[y][x] = 'M';
+            placedMines++;
+        }
+    }
+}
 
-function displayWorld() {   // Function // Process
-    console.clear();
-    console.log(chalk.green('+') + '-'.repeat(worldSize) + chalk.green('+'));
-    for (let y = 0; y < worldSize; y++) {  //Loop
-        let row = chalk.green('|');
-        for (let x = 0; x < worldSize; x++) {
-            if (player.x === x && player.y === y) {
-                row += chalk.blue('@');
-            } else {
-                row += blockColors[world[y][x]];
+// Function to count adjacent mines
+function countAdjacentMines(x, y) {
+    let mineCount = 0;
+    for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+            let nx = x + dx;
+            let ny = y + dy;
+            if (nx >= 0 && ny >= 0 && nx < worldSize && ny < worldSize && world[ny][nx] === 'M') {
+                mineCount++;
             }
         }
-        row += chalk.green('|');
-        console.log(row);
     }
-    console.log(chalk.green('+') + '-'.repeat(worldSize) + chalk.green('+'));
+    return mineCount;
 }
 
-function handleInput(input) {   //Function
-    input = input.trim();
-
-    let newX = player.x;
-    let newY = player.y;
-
-    if (input === 'w' && player.y > 0) {
-        newY--;
-    } else if (input === 's' && player.y < worldSize - 1) {
-        newY++;
-    } else if (input === 'a' && player.x > 0) {
-        newX--;
-    } else if (input === 'd' && player.x < worldSize - 1) {
-        newX++;
-    } else if (input === 'm') {
-        world[player.y][player.x] = '.'; // Mine
-    } else if (input === 'p') {
-        world[player.y][player.x] = 'X'; // Place
-    } else if (input === 'b') {
-        world[player.y][player.x] = 'B'; // Place Bomb
-    } else {
-        console.log(chalk.red('Invalid input! Use w, s, a, d, m, p, b.'));
-        return;
-    }
-
-    // Check for bomb at new position
-    if (world[newY][newX] === 'B') {
-        console.log(chalk.red('Boom! You hit a bomb! Game over.'));
-        rl.close();
-        return;
-    }
-
-    // Move player to new position
-    player.x = newX;
-    player.y = newY;
-
-    displayWorld();
-}
-
-// Display instructions before starting the game // Initialization
-displayInstructions();
-
-// Set up the event listener and start the game loop after pressing Enter
-let gameStarted = false;
-rl.on('line', (input) => {
-    if (!gameStarted) {
-        displayWorld();
-        gameStarted = true;
-        rl.prompt();
-    } else {
-        handleInput(input);
-        rl.prompt();
-    }
-});
-rl.prompt();
-
-    console.log(chalk.green('s - move down'));
-    console.log(chalk.green('a - move left'));
-    console.log(chalk.green('d - move right'));
-    console.log(chalk.green('m - mine (remove a block)'));
-    console.log(chalk.green('p - place a block'));
-    console.log(chalk.green('b - place a bomb'));
-    console.log(chalk.green('Press Enter to start...'));
-}
-
-// Set up the readline interface
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
-
-const worldSize = 5;
-
-// Define different block types and their display colors
-const blockTypes = ['.', 'O', 'X', 'S', 'W', 'B']; // .: air, O: mined, X: placed, S: stone, W: wood, B: bomb
-const blockColors = {
-    '.': chalk.gray('.'),
-    'O': chalk.black('O'),
-    'X': chalk.yellow('X'),
-    'S': chalk.white('S'),
-    'W': chalk.rgb(139, 69, 19)('W'), // Chalk doesn't have a brown color, so using rgb for wood
-    'B': chalk.red('B') // Bomb
-};
-
-// Initialize the game world with random blocks
-const world = Array.from({ length: worldSize }, () => 
-    Array(worldSize).fill(null).map(() => blockTypes[Math.floor(Math.random() * (blockTypes.length - 1))]) // Exclude bombs in initial world
-);
-
-let player = { x: 2, y: 2 };
+// Player starting position
+let player = { x: 0, y: 0 };
 
 function displayWorld() {
     console.clear();
@@ -181,14 +83,38 @@ function displayWorld() {
         for (let x = 0; x < worldSize; x++) {
             if (player.x === x && player.y === y) {
                 row += chalk.blue('@');
-            } else {
+            } else if (revealed[y][x]) {
                 row += blockColors[world[y][x]];
+            } else if (world[y][x] === 'F') {
+                row += blockColors['F'];
+            } else {
+                row += blockColors['.'];
             }
         }
         row += chalk.green('|');
         console.log(row);
     }
     console.log(chalk.green('+') + '-'.repeat(worldSize) + chalk.green('+'));
+}
+
+function revealCell(x, y) {
+    if (!revealed[y][x] && (world[y][x] === '.' || world[y][x] === 'F')) {
+        let mines = countAdjacentMines(x, y);
+        world[y][x] = mines === 0 ? ' ' : mines.toString();
+        revealed[y][x] = true;
+        if (mines === 0) {
+            // Reveal adjacent cells recursively if there are no adjacent mines
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    let nx = x + dx;
+                    let ny = y + dy;
+                    if (nx >= 0 && ny >= 0 && nx < worldSize && ny < worldSize && (dx !== 0 || dy !== 0)) {
+                        revealCell(nx, ny);
+                    }
+                }
+            }
+        }
+    }
 }
 
 function handleInput(input) {
@@ -206,20 +132,23 @@ function handleInput(input) {
     } else if (input === 'd' && player.x < worldSize - 1) {
         newX++;
     } else if (input === 'm') {
-        world[player.y][player.x] = '.'; // Mine
-    } else if (input === 'p') {
-        world[player.y][player.x] = 'X'; // Place
-    } else if (input === 'b') {
-        world[player.y][player.x] = 'B'; // Place Bomb
+        // Mark or unmark a mine
+        if (world[player.y][player.x] === '.') {
+            world[player.y][player.x] = 'F';
+        } else if (world[player.y][player.x] === 'F') {
+            world[player.y][player.x] = '.';
+        }
+    } else if (input === 'r') {
+        // Reveal a cell
+        if (world[player.y][player.x] === 'M') {
+            console.log(chalk.red('Boom! You hit a mine! Game over.'));
+            rl.close();
+            return;
+        } else {
+            revealCell(player.x, player.y);
+        }
     } else {
-        console.log(chalk.red('Invalid input! Use w, s, a, d, m, p, b.'));
-        return;
-    }
-
-    // Check for bomb at new position
-    if (world[newY][newX] === 'B') {
-        console.log(chalk.red('Boom! You hit a bomb! Game over.'));
-        rl.close();
+        console.log(chalk.red('Invalid input! Use w, s, a, d, m, r.'));
         return;
     }
 
@@ -233,16 +162,18 @@ function handleInput(input) {
 // Display instructions before starting the game
 displayInstructions();
 
+// Place mines in the world
+placeMines();
+
 // Set up the event listener and start the game loop after pressing Enter
 let gameStarted = false;
 rl.on('line', (input) => {
     if (!gameStarted) {
-        displayWorld();
         gameStarted = true;
+        displayWorld();
         rl.prompt();
     } else {
         handleInput(input);
         rl.prompt();
     }
 });
-rl.prompt();
